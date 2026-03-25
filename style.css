@@ -1,0 +1,80 @@
+:root {
+  color-scheme: dark;
+  --bg: #0f172a;
+  --panel: #111827;
+  --grid: #1f2937;
+  --snake: #22c55e;
+  --head: #16a34a;
+  --food: #ef4444;
+  --text: #e5e7eb;
+  --accent: #38bdf8;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  background: radial-gradient(circle at top, #1e293b 0%, var(--bg) 45%);
+  color: var(--text);
+  font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+
+.app {
+  width: min(92vw, 520px);
+  background: rgba(17, 24, 39, 0.9);
+  border: 1px solid #334155;
+  border-radius: 16px;
+  padding: 16px;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+}
+
+h1 {
+  text-align: center;
+  margin: 8px 0 16px;
+}
+
+.hud {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+  font-weight: 600;
+}
+
+canvas {
+  width: 100%;
+  height: auto;
+  display: block;
+  border: 1px solid #334155;
+  border-radius: 12px;
+  background: #0b1220;
+}
+
+.controls {
+  margin-top: 14px;
+  text-align: center;
+}
+
+button {
+  background: linear-gradient(90deg, #2563eb, var(--accent));
+  color: white;
+  border: 0;
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 15px;
+  cursor: pointer;
+}
+
+button:hover {
+  filter: brightness(1.08);
+}
+
+#status {
+  color: #cbd5e1;
+  min-height: 1.2em;
+}
