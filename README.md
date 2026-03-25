@@ -29,6 +29,25 @@ open index.html
 start index.html
 ```
 
+
+### 找不到项目文件夹怎么办（重点）
+如果你不知道项目在哪，先在终端执行：
+```bash
+find ~ -type f -name "index.html" 2>/dev/null
+```
+
+然后从输出里找**最像你项目名**的路径，例如：
+`/home/你的用户名/snake-game/index.html`
+
+拿到路径后这样进入项目目录：
+```bash
+cd /home/你的用户名/snake-game
+pwd
+ls
+```
+
+看到 `index.html` 就说明找对了。
+
 ### 方式 2：本地服务（更稳）
 ```bash
 cd /你的项目目录/tanchi
