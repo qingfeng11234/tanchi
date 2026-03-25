@@ -4,8 +4,30 @@
 
 ## 本地运行（自己玩）
 
-### 方式 1：直接双击
-直接用浏览器打开 `index.html` 即可。
+### 方式 1：直接双击（最简单）
+> 适合不会写命令的同学。
+
+1. 打开你保存项目的文件夹（里面要能看到 `index.html`）。
+2. 找到 `index.html` 文件。
+3. 鼠标**双击** `index.html`。
+4. 系统会自动用默认浏览器打开游戏页面。
+
+如果双击没反应：
+- **Windows**：右键 `index.html` → `打开方式` → 选 Chrome / Edge。
+- **macOS**：右键 `index.html` → `打开方式` → 选 Safari / Chrome。
+- **Linux(Ubuntu)**：右键 `index.html` → `打开方式` → 选 Firefox / Chrome。
+
+你也可以用命令直接打开（可选）：
+```bash
+# Linux
+xdg-open index.html
+
+# macOS
+open index.html
+
+# Windows PowerShell
+start index.html
+```
 
 ### 方式 2：本地服务（更稳）
 ```bash
