@@ -1,0 +1,486 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>炸金花（单机 3 人）</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --panel: #1e293b;
+      --text: #e2e8f0;
+      --accent: #38bdf8;
+      --danger: #f87171;
+      --ok: #34d399;
+      --muted: #94a3b8;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+      background: radial-gradient(circle at top, #1e293b, var(--bg));
+      color: var(--text);
+      min-height: 100vh;
+    }
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 16px;
+    }
+    .card {
+      background: rgba(30,41,59,.9);
+      border: 1px solid #334155;
+      border-radius: 12px;
+      padding: 14px;
+      margin-bottom: 12px;
+    }
+    h1 { margin: 0 0 10px; font-size: 24px; }
+    .top {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 12px;
+      align-items: center;
+    }
+    .bank-controls {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    input[type="number"] {
+      width: 120px;
+      background: #0b1220;
+      color: var(--text);
+      border: 1px solid #334155;
+      border-radius: 8px;
+      padding: 8px;
+    }
+    button {
+      border: 0;
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .btn-primary { background: var(--accent); color: #03202e; }
+    .btn-secondary { background: #334155; color: var(--text); }
+    .btn-danger { background: var(--danger); color: #200; }
+    .btn-ok { background: var(--ok); color: #042f2e; }
+    .status {
+      color: var(--muted);
+      line-height: 1.7;
+      white-space: pre-wrap;
+      min-height: 48px;
+    }
+    .players {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .player {
+      border: 1px solid #334155;
+      border-radius: 10px;
+      padding: 10px;
+      background: #0b1220;
+    }
+    .player.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+    .player.folded { opacity: .55; }
+    .name { font-weight: 700; }
+    .meta { font-size: 13px; color: var(--muted); margin: 6px 0; }
+    .hand { display: flex; gap: 6px; min-height: 34px; }
+    .playing-card {
+      width: 58px;
+      border-radius: 8px;
+      background: #f8fafc;
+      color: #111827;
+      padding: 6px;
+      text-align: center;
+      font-weight: 700;
+      font-size: 14px;
+    }
+    .back { background: #334155; color: #cbd5e1; }
+    .chip { color: #fbbf24; font-weight: 700; }
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+    .hidden { display: none; }
+    .legend { font-size: 12px; color: var(--muted); margin-top: 6px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="card top">
+      <div>
+        <h1>炸金花（网页单机）</h1>
+        <div>底注：<span class="chip" id="anteView">10</span> ｜ 当前池子：<span class="chip" id="potView">0</span></div>
+      </div>
+      <div class="bank-controls">
+        <label>设置你的金币：</label>
+        <input id="setCoinsInput" type="number" min="0" step="100" value="10000" />
+        <button class="btn-primary" id="setCoinsBtn">设置</button>
+        <label>给自己加金币：</label>
+        <input id="addCoinsInput" type="number" min="0" step="100" value="1000" />
+        <button class="btn-ok" id="addCoinsBtn">添加金币</button>
+      </div>
+    </div>
+
+    <div class="card players" id="players"></div>
+
+    <div class="card">
+      <div class="actions" id="actions">
+        <button class="btn-secondary" id="newRoundBtn">开始新一局</button>
+        <button class="btn-secondary hidden" id="lookBtn">看牌</button>
+        <button class="btn-primary hidden" id="callBtn">跟注</button>
+        <button class="btn-primary hidden" id="raiseBtn">加注 +10</button>
+        <button class="btn-danger hidden" id="foldBtn">弃牌</button>
+        <button class="btn-ok hidden" id="compareBtn">和下一位比牌</button>
+      </div>
+      <div class="legend">规则（默认）：3人固定；每人先下底注10；看牌后跟注金额翻倍；可比牌（与下一位未弃牌玩家比较，输家出局）。</div>
+    </div>
+
+    <div class="card">
+      <h3 style="margin-top:0;">游戏日志</h3>
+      <div class="status" id="log"></div>
+    </div>
+  </div>
+
+  <script>
+    const suits = ["♠", "♥", "♦", "♣"];
+    const ranks = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14];
+    const rankText = {11: "J", 12: "Q", 13: "K", 14: "A"};
+
+    const state = {
+      players: [
+        { id: 0, name: "你", isHuman: true, coins: 10000, hand: [], looked: false, folded: false, currentBet: 0 },
+        { id: 1, name: "AI-1", isHuman: false, coins: 10000, hand: [], looked: false, folded: false, currentBet: 0 },
+        { id: 2, name: "AI-2", isHuman: false, coins: 10000, hand: [], looked: false, folded: false, currentBet: 0 }
+      ],
+      deck: [],
+      pot: 0,
+      ante: 10,
+      currentBet: 10,
+      roundActive: false,
+      turn: 0,
+      log: ["欢迎来到单机炸金花，先设置金币再开局。"]
+    };
+
+    const $ = (id) => document.getElementById(id);
+
+    function pushLog(msg) {
+      state.log.unshift(`[${new Date().toLocaleTimeString()}] ${msg}`);
+      state.log = state.log.slice(0, 12);
+      $("log").textContent = state.log.join("\n");
+    }
+
+    function formatCard(c) {
+      const r = rankText[c.rank] || c.rank;
+      return `${c.suit}${r}`;
+    }
+
+    function freshDeck() {
+      const deck = [];
+      for (const s of suits) {
+        for (const r of ranks) deck.push({ suit: s, rank: r });
+      }
+      for (let i = deck.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [deck[i], deck[j]] = [deck[j], deck[i]];
+      }
+      return deck;
+    }
+
+    function resetRoundFields() {
+      state.deck = freshDeck();
+      state.pot = 0;
+      state.currentBet = state.ante;
+      state.turn = 0;
+      state.players.forEach((p) => {
+        p.hand = [];
+        p.looked = false;
+        p.folded = false;
+        p.currentBet = 0;
+      });
+    }
+
+    function deal() {
+      for (let i = 0; i < 3; i++) {
+        for (const p of state.players) p.hand.push(state.deck.pop());
+      }
+      state.players.forEach((p) => p.hand.sort((a, b) => b.rank - a.rank));
+    }
+
+    function pay(p, amount) {
+      const real = Math.min(p.coins, amount);
+      p.coins -= real;
+      p.currentBet += real;
+      state.pot += real;
+      return real;
+    }
+
+    function startRound() {
+      if (state.players.filter((p) => p.coins > 0).length < 2) {
+        pushLog("至少需要 2 名玩家有金币才能继续。可以给自己加金币后再试。");
+        render();
+        return;
+      }
+      resetRoundFields();
+      deal();
+      for (const p of state.players) {
+        const paid = pay(p, state.ante);
+        if (paid < state.ante) p.folded = true;
+      }
+      state.roundActive = true;
+      state.turn = findNextAlive(-1);
+      pushLog("新一局开始，每人已下底注 10。轮到你行动。");
+      render();
+      maybePlayAI();
+    }
+
+    function alivePlayers() {
+      return state.players.filter((p) => !p.folded);
+    }
+
+    function findNextAlive(from) {
+      for (let i = 1; i <= state.players.length; i++) {
+        const idx = (from + i) % state.players.length;
+        if (!state.players[idx].folded) return idx;
+      }
+      return -1;
+    }
+
+    function requiredToCall(p) {
+      const base = state.currentBet - p.currentBet;
+      return p.looked ? base * 2 : base;
+    }
+
+    function handRank(hand) {
+      const rs = hand.map((c) => c.rank).sort((a, b) => b - a);
+      const ss = hand.map((c) => c.suit);
+      const counts = {};
+      rs.forEach((r) => counts[r] = (counts[r] || 0) + 1);
+      const vals = Object.values(counts).sort((a, b) => b - a);
+      const uniq = Object.keys(counts).map(Number).sort((a, b) => b - a);
+      const flush = ss[0] === ss[1] && ss[1] === ss[2];
+      const straight = (rs[0] - rs[1] === 1 && rs[1] - rs[2] === 1) || (rs[0] === 14 && rs[1] === 3 && rs[2] === 2);
+
+      if (vals[0] === 3) return { cat: 6, tiebreak: uniq, name: "豹子" };
+      if (straight && flush) return { cat: 5, tiebreak: rs, name: "顺金" };
+      if (flush) return { cat: 4, tiebreak: rs, name: "金花" };
+      if (straight) return { cat: 3, tiebreak: rs, name: "顺子" };
+      if (vals[0] === 2) {
+        const pair = Number(Object.keys(counts).find((k) => counts[k] === 2));
+        const single = Number(Object.keys(counts).find((k) => counts[k] === 1));
+        return { cat: 2, tiebreak: [pair, single], name: "对子" };
+      }
+      return { cat: 1, tiebreak: rs, name: "单张" };
+    }
+
+    function compareHands(a, b) {
+      const ra = handRank(a), rb = handRank(b);
+      if (ra.cat !== rb.cat) return ra.cat - rb.cat;
+      for (let i = 0; i < Math.max(ra.tiebreak.length, rb.tiebreak.length); i++) {
+        const da = ra.tiebreak[i] || 0;
+        const db = rb.tiebreak[i] || 0;
+        if (da !== db) return da - db;
+      }
+      return 0;
+    }
+
+    function nextTurn() {
+      if (!state.roundActive) return;
+      const alive = alivePlayers();
+      if (alive.length <= 1) return settle(alive[0]);
+      state.turn = findNextAlive(state.turn);
+      render();
+      maybePlayAI();
+    }
+
+    function playerCall(p) {
+      const need = Math.max(0, requiredToCall(p));
+      const paid = pay(p, need);
+      pushLog(`${p.name} 跟注 ${paid}。`);
+    }
+
+    function playerRaise(p, extra = 10) {
+      const need = Math.max(0, requiredToCall(p)) + extra;
+      const paid = pay(p, need);
+      state.currentBet += extra;
+      pushLog(`${p.name} 加注，合计投入 ${paid}。`);
+    }
+
+    function playerFold(p) {
+      p.folded = true;
+      pushLog(`${p.name} 弃牌。`);
+    }
+
+    function playerLook(p) {
+      p.looked = true;
+      pushLog(`${p.name} 看牌：${p.hand.map(formatCard).join(" ")}（${handRank(p.hand).name}）`);
+    }
+
+    function playerCompare(p) {
+      const targetIdx = findNextAlive(p.id);
+      if (targetIdx < 0 || targetIdx === p.id) return;
+      const t = state.players[targetIdx];
+      const need = Math.max(0, requiredToCall(p));
+      pay(p, need);
+      const cmp = compareHands(p.hand, t.hand);
+      if (cmp >= 0) {
+        t.folded = true;
+        pushLog(`${p.name} 与 ${t.name} 比牌，${t.name} 出局。`);
+      } else {
+        p.folded = true;
+        pushLog(`${p.name} 与 ${t.name} 比牌，${p.name} 出局。`);
+      }
+    }
+
+    function aiTurn(ai) {
+      if (!state.roundActive || ai.folded) return;
+      const strength = handRank(ai.hand).cat;
+      const need = requiredToCall(ai);
+      if (!ai.looked && Math.random() < 0.45) {
+        ai.looked = true;
+        pushLog(`${ai.name} 选择看牌。`);
+      }
+
+      if (ai.coins <= need) {
+        if (Math.random() < 0.55) playerFold(ai); else playerCall(ai);
+        return;
+      }
+
+      if (strength >= 4 && Math.random() < 0.35) {
+        playerRaise(ai, 10);
+      } else if (strength <= 2 && need > 40 && Math.random() < 0.5) {
+        playerFold(ai);
+      } else if (Math.random() < 0.2) {
+        playerCompare(ai);
+      } else {
+        playerCall(ai);
+      }
+    }
+
+    function maybePlayAI() {
+      if (!state.roundActive) return;
+      const cur = state.players[state.turn];
+      if (!cur || cur.isHuman || cur.folded) return;
+      setTimeout(() => {
+        aiTurn(cur);
+        const alive = alivePlayers();
+        if (alive.length <= 1) settle(alive[0]);
+        else nextTurn();
+      }, 600);
+    }
+
+    function settle(winner) {
+      if (!winner) return;
+      winner.coins += state.pot;
+      pushLog(`本局结束，${winner.name} 获胜，赢得 ${state.pot} 金币。`);
+      state.roundActive = false;
+      state.turn = -1;
+      state.players.forEach((p) => {
+        if (!p.folded) pushLog(`${p.name} 手牌：${p.hand.map(formatCard).join(" ")}（${handRank(p.hand).name}）`);
+      });
+      render();
+    }
+
+    function renderPlayers() {
+      const el = $("players");
+      el.innerHTML = "";
+      state.players.forEach((p, idx) => {
+        const isTurn = state.roundActive && state.turn === idx;
+        const cards = p.hand.length === 0
+          ? ""
+          : p.isHuman || p.looked || !state.roundActive
+            ? p.hand.map((c) => `<div class=\"playing-card\">${formatCard(c)}</div>`).join("")
+            : p.hand.map(() => `<div class=\"playing-card back\">?</div>`).join("");
+
+        const div = document.createElement("div");
+        div.className = `player ${isTurn ? "active" : ""} ${p.folded ? "folded" : ""}`;
+        div.innerHTML = `
+          <div class="name">${p.name}${isTurn ? "（行动中）" : ""}</div>
+          <div class="meta">金币：<span class="chip">${p.coins}</span> ｜ 本轮投入：${p.currentBet} ｜ ${p.looked ? "已看牌" : "未看牌"}</div>
+          <div class="hand">${cards}</div>
+        `;
+        el.appendChild(div);
+      });
+    }
+
+    function renderActions() {
+      const humanTurn = state.roundActive && state.turn === 0 && !state.players[0].folded;
+      ["lookBtn", "callBtn", "raiseBtn", "foldBtn", "compareBtn"].forEach((id) => {
+        $(id).classList.toggle("hidden", !humanTurn);
+      });
+      $("newRoundBtn").disabled = state.roundActive;
+      if (humanTurn) {
+        const me = state.players[0];
+        const need = requiredToCall(me);
+        $("callBtn").textContent = `跟注 ${Math.max(0, need)}`;
+      }
+    }
+
+    function render() {
+      $("potView").textContent = state.pot;
+      $("anteView").textContent = state.ante;
+      renderPlayers();
+      renderActions();
+      $("log").textContent = state.log.join("\n");
+    }
+
+    $("setCoinsBtn").addEventListener("click", () => {
+      const val = Number($("setCoinsInput").value);
+      if (!Number.isFinite(val) || val < 0) return;
+      state.players[0].coins = Math.floor(val);
+      pushLog(`你的金币已设置为 ${Math.floor(val)}。`);
+      render();
+    });
+
+    $("addCoinsBtn").addEventListener("click", () => {
+      const val = Number($("addCoinsInput").value);
+      if (!Number.isFinite(val) || val <= 0) return;
+      state.players[0].coins += Math.floor(val);
+      pushLog(`你添加了 ${Math.floor(val)} 金币。`);
+      render();
+    });
+
+    $("newRoundBtn").addEventListener("click", startRound);
+
+    $("lookBtn").addEventListener("click", () => {
+      if (state.turn !== 0) return;
+      playerLook(state.players[0]);
+      render();
+    });
+
+    $("callBtn").addEventListener("click", () => {
+      if (state.turn !== 0) return;
+      playerCall(state.players[0]);
+      const alive = alivePlayers();
+      if (alive.length <= 1) settle(alive[0]); else nextTurn();
+    });
+
+    $("raiseBtn").addEventListener("click", () => {
+      if (state.turn !== 0) return;
+      playerRaise(state.players[0], 10);
+      nextTurn();
+    });
+
+    $("foldBtn").addEventListener("click", () => {
+      if (state.turn !== 0) return;
+      playerFold(state.players[0]);
+      const alive = alivePlayers();
+      if (alive.length <= 1) settle(alive[0]); else nextTurn();
+    });
+
+    $("compareBtn").addEventListener("click", () => {
+      if (state.turn !== 0) return;
+      playerCompare(state.players[0]);
+      const alive = alivePlayers();
+      if (alive.length <= 1) settle(alive[0]); else nextTurn();
+    });
+
+    render();
+  </script>
+</body>
+</html>
