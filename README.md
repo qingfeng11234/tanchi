@@ -36,7 +36,16 @@ start index.html
 find ~ -type f -name "index.html" 2>/dev/null
 ```
 
-然后从输出里找**最像你项目名**的路径，例如：
+如果结果很多（你这种情况很常见），再执行下面命令，只筛出“页面里包含"炸金花"文字”的文件：
+```bash
+find ~ -type f -name "index.html" 2>/dev/null | while read -r f; do
+  if grep -q "炸金花" "$f"; then
+    echo "$f"
+  fi
+done
+```
+
+然后从筛选结果里选你的项目路径，例如：
 `/home/你的用户名/snake-game/index.html`
 
 拿到路径后这样进入项目目录：
@@ -46,7 +55,7 @@ pwd
 ls
 ```
 
-看到 `index.html` 就说明找对了。
+看到 `index.html`，并且运行 `grep -n "炸金花" index.html` 有输出，就说明找对了。
 
 ### 方式 2：本地服务（更稳）
 ```bash
