@@ -533,10 +533,15 @@
         let cards = "";
         if (p.hand.length === 0) {
           cards = "";
-        } else if (p.isHuman || p.looked || !state.roundActive) {
-          cards = p.hand.map((c) => cardHtml(c)).join("");
         } else {
-          cards = p.hand.map(() => `<div class="playing-card back">?</div>`).join("");
+          // 只有在回合结束后才统一明牌。
+          // 回合进行中：
+          // - 你自己的牌：仅在你点击“看牌”后可见。
+          // - AI 的牌：始终不可见（即使 AI 已看牌）。
+          const revealThisHand = !state.roundActive || (p.isHuman && p.looked);
+          cards = revealThisHand
+            ? p.hand.map((c) => cardHtml(c)).join("")
+            : p.hand.map(() => `<div class="playing-card back">?</div>`).join("");
         }
 
         const div = document.createElement("div");
