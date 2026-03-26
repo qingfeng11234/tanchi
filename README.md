@@ -77,6 +77,25 @@ cd ~/zhajinhua-web
 ```
 然后浏览器打开：`http://127.0.0.1:8000/index.html`
 
+
+### 常见报错：`bash./install_to_home.sh: 没有那个文件或目录`
+这个报错是命令少了空格，你输入成了 `bash./install_to_home.sh`。
+
+正确写法二选一：
+```bash
+bash ./install_to_home.sh
+# 或
+./install_to_home.sh
+```
+
+另外要先确认你当前目录里确实有这个脚本：
+```bash
+pwd
+ls -l install_to_home.sh
+```
+
+如果 `ls` 提示找不到，请先 `cd` 到项目源码目录再执行。
+
 ### 方式 2：本地服务（更稳）
 ```bash
 cd /你的项目目录/tanchi
