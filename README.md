@@ -57,6 +57,26 @@ ls
 
 看到 `index.html`，并且运行 `grep -n "炸金花" index.html` 有输出，就说明找对了。
 
+
+### 你本机只有“贪吃蛇”没有“炸金花”怎么办
+这说明你本机目录里还没保存这套新文件。最省事的方法是，在**包含本项目源码的目录**运行：
+```bash
+./install_to_home.sh
+```
+默认会把文件复制到：`~/zhajinhua-web`
+
+也可以指定目录：
+```bash
+./install_to_home.sh ~/my-games/zhajinhua-web
+```
+
+复制完成后启动：
+```bash
+cd ~/zhajinhua-web
+./run_local.sh
+```
+然后浏览器打开：`http://127.0.0.1:8000/index.html`
+
 ### 方式 2：本地服务（更稳）
 ```bash
 cd /你的项目目录/tanchi
