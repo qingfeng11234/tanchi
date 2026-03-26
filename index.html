@@ -267,7 +267,7 @@
         </div>
       </div>
       <div class="legend">
-        规则：固定 3 人（你 + 2 AI）；每人下底注 10；看牌后跟注金额翻倍；可和下一位未弃牌玩家比牌，输家出局。
+        规则：固定 3 人（你 + 2 AI）；每人下底注 10；跟注按当前下注基准支付（看牌后翻倍）；至少完整过一轮后才可比牌。
       </div>
     </div>
 
@@ -294,6 +294,7 @@
       currentBet: 10,
       roundActive: false,
       turn: 0,
+      actionsTaken: 0,
       log: ["欢迎来到单机炸金花。"]
     };
 
@@ -329,6 +330,7 @@
       state.pot = 0;
       state.currentBet = state.ante;
       state.turn = 0;
+      state.actionsTaken = 0;
       state.players.forEach((p) => {
         p.hand = [];
         p.looked = false;
@@ -363,8 +365,12 @@
     }
 
     function requiredToCall(p) {
-      const base = Math.max(0, state.currentBet - p.currentBet);
+      const base = state.currentBet;
       return p.looked ? base * 2 : base;
+    }
+
+    function canCompareNow() {
+      return state.actionsTaken >= alivePlayers().length;
     }
 
     function handRank(hand) {
@@ -425,6 +431,7 @@
     function playerCall(p) {
       const need = requiredToCall(p);
       const paid = pay(p, need);
+      state.actionsTaken += 1;
       pushLog(`${p.name} 跟注 ${paid}。`);
     }
 
@@ -432,11 +439,13 @@
       const need = requiredToCall(p) + extra;
       const paid = pay(p, need);
       state.currentBet += extra;
+      state.actionsTaken += 1;
       pushLog(`${p.name} 加注（+${extra}），本次投入 ${paid}。`);
     }
 
     function playerFold(p) {
       p.folded = true;
+      state.actionsTaken += 1;
       pushLog(`${p.name} 弃牌。`);
     }
 
@@ -446,10 +455,15 @@
     }
 
     function playerCompare(p) {
+      if (!canCompareNow()) {
+        pushLog("至少先完整过一轮后才能比牌。");
+        return false;
+      }
       const targetIdx = findNextAlive(p.id);
-      if (targetIdx < 0 || targetIdx === p.id) return;
+      if (targetIdx < 0 || targetIdx === p.id) return false;
       const t = state.players[targetIdx];
       pay(p, requiredToCall(p));
+      state.actionsTaken += 1;
       const cmp = compareHands(p.hand, t.hand);
       if (cmp >= 0) {
         t.folded = true;
@@ -458,6 +472,7 @@
         p.folded = true;
         pushLog(`${p.name} 与 ${t.name} 比牌，${p.name} 出局。`);
       }
+      return true;
     }
 
     function aiTurn(ai) {
@@ -480,7 +495,7 @@
         playerRaise(ai, 10);
       } else if (strength <= 2 && need > 40 && Math.random() < 0.55) {
         playerFold(ai);
-      } else if (Math.random() < 0.2) {
+      } else if (canCompareNow() && Math.random() < 0.2) {
         playerCompare(ai);
       } else {
         playerCall(ai);
@@ -513,7 +528,7 @@
       }
       state.roundActive = true;
       state.turn = findNextAlive(-1);
-      pushLog("新一局开始，每人已下底注 10。轮到你行动。");
+      pushLog("新一局开始，每人已下底注 10。先完整过一轮后才能比牌，轮到你行动。");
       render();
       maybePlayAI();
     }
@@ -587,8 +602,14 @@
       if (humanTurn) {
         const me = state.players[0];
         const need = requiredToCall(me);
+        const compareReady = canCompareNow();
         $("callBtn").textContent = `跟注 ${Math.max(0, need)}`;
         $("raiseBtn").textContent = "加注 +10";
+        $("compareBtn").disabled = !compareReady;
+        $("compareBtn").title = compareReady ? "" : "至少先完整过一轮后才能比牌";
+      } else {
+        $("compareBtn").disabled = false;
+        $("compareBtn").title = "";
       }
     }
 
@@ -650,7 +671,11 @@
 
     $("compareBtn").addEventListener("click", () => {
       if (state.turn !== 0) return;
-      playerCompare(state.players[0]);
+      const ok = playerCompare(state.players[0]);
+      if (!ok) {
+        render();
+        return;
+      }
       const alive = alivePlayers();
       if (alive.length <= 1) settle(alive[0]);
       else nextTurn();
